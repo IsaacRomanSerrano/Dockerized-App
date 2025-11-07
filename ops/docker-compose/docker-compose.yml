@@ -1,0 +1,70 @@
+version: "3.9"
+
+services:
+  traefik:
+    image: traefik:v3.0
+    command:
+      - --providers.docker=true
+      - --entrypoints.web.address=:8080
+    ports:
+      - "8080:8080"     # tráfico a los servicios
+      - "8081:8081"     # dashboard traefik (opcional si activas api.insecure=true)
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  db-product:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: productdb
+    ports: ["5433:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d productdb"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  product-service:
+    build:
+      context: ../../services/product-service
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db-product:5432/productdb
+    depends_on:
+      db-product:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.product.rule=PathPrefix(`/products`)"
+      - "traefik.http.routers.product.entrypoints=web"
+      - "traefik.http.services.product.loadbalancer.server.port=8000"
+
+  prometheus:
+      image: prom/prometheus:v2.53.0
+      command:
+        - --config.file=/etc/prometheus/prometheus.yml
+      volumes:
+        - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      ports:
+        - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    ports: ["3000:3000"]
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+
+  loki:
+    image: grafana/loki:2.9.8
+    command: -config.file=/etc/loki/local-config.yaml
+    ports: ["3100:3100"]
+
+  promtail:
+    image: grafana/promtail:2.9.8
+    command: -config.file=/etc/promtail/config.yml
+    volumes:
+      - /var/log:/var/log
+      - ./loki-promtail:/etc/promtail
+    labels:
+      - "traefik.enable=false"
