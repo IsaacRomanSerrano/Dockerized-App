@@ -44,12 +44,12 @@ Each service is observable and monitored through Prometheus and Grafana.
 ```mermaid
 graph TD
     A[User] -->|HTTP Requests| B[Traefik: Reverse Proxy]
-    B --> C[Product Service (FastAPI)]
+    B --> C[Product Service - FastAPI]
     C --> D[PostgreSQL Database]
-    C --> E[Prometheus: Metrics /metrics]
+    C --> E[Prometheus Metrics Endpoint]
     E --> F[Grafana Dashboard]
-    C --> G[Promtail: Logs Collector]
-    G --> H[Loki: Log Storage]
+    C --> G[Promtail Log Collector]
+    G --> H[Loki Log Storage]
 ```
 ## ⚙️ Implementation Steps
 
